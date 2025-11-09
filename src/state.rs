@@ -21,7 +21,7 @@ impl From<&str> for DeviceKind {
     fn from(value: &str) -> Self {
         match value {
             "Audio/Sink" => DeviceKind::Sink,
-            "Audio/Source" => DeviceKind::Sink,
+            "Audio/Source" => DeviceKind::Source,
             "Audio/Device" => DeviceKind::Device,
             _ => DeviceKind::Unknown,
         }
