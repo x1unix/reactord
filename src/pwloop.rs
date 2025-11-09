@@ -34,20 +34,31 @@ impl PWContext {
 
 type PWGlobalObject<'a> = pw::registry::GlobalObject<&'a pw::spa::utils::dict::DictRef>;
 
-fn print_props(label: &str, props: &Option<&DictRef>) {
-    println!("PW:{label}");
+fn print_props(otype: &ObjectType, label: &str, props: &Option<&DictRef>) {
     if let Some(kv) = props {
+        let key = if *otype == ObjectType::Device {
+            "device.description"
+        } else {
+            "node.description"
+        };
+
+        let name = kv.get(key).unwrap_or("<unnamed>");
+        println!("PW:{label:<6} - {name}");
+
         kv.iter().for_each(|(k, v)| println!("  {k:<20} => {v}"));
+        return;
     }
+
+    println!("PW:{label}");
 }
 
 fn on_global_change(o: &PWGlobalObject) {
     match o.type_ {
         ObjectType::Node if utils::is_audio_node(&o.props) => {
-            print_props("Node", &o.props);
+            print_props(&o.type_, "Node", &o.props);
         }
         ObjectType::Device if utils::is_audio_device(&o.props) => {
-            print_props("Device", &o.props);
+            print_props(&o.type_, "Device", &o.props);
         }
         _ => {}
     }
