@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use ctrlc;
 use pipewire as pw;
 use tokio::sync::mpsc;
 
@@ -74,8 +75,12 @@ fn start_pw_thread(
 }
 
 fn main() {
-    // TODO: use SIGINT for cancellation signal
-    let (_stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
+    let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
+    ctrlc::set_handler(move || {
+        let _ = stop_tx.send(());
+    })
+    .expect("failed to init shutdown handler");
+
     let h = match start_pw_thread(stop_rx, None) {
         Ok(h) => h,
         Err(err) => {
@@ -85,4 +90,5 @@ fn main() {
     };
 
     h.join().unwrap();
+    println!("bye");
 }
