@@ -1,7 +1,10 @@
 mod pwloop;
+mod state;
 mod utils;
 
 use anyhow::Result;
+use state::ActionType;
+use utils::VolumeInfo;
 
 fn new_cancel_token() -> Result<std::sync::mpsc::Receiver<()>> {
     let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
@@ -14,7 +17,7 @@ fn new_cancel_token() -> Result<std::sync::mpsc::Receiver<()>> {
 
 fn main() {
     let stop_rx = new_cancel_token().expect("failed to init shutdown handler");
-    let h = match pwloop::start_pw_thread(stop_rx, None) {
+    let h = match pwloop::start_pw_thread(stop_rx) {
         Ok(h) => h,
         Err(err) => {
             eprintln!("failed to start pipewire listener: {err}");
@@ -22,6 +25,23 @@ fn main() {
         }
     };
 
-    h.join().unwrap();
-    println!("bye");
+    for msg in h {
+        match msg {
+            ActionType::EntryAdd(e) => {
+                println!(
+                    "PW:{:?} - {}",
+                    e.kind,
+                    e.label.as_ref().map(|v| v.as_str()).unwrap_or("<unnamed>")
+                )
+            }
+            ActionType::Shutdown => {
+                println!("bye!");
+                return;
+            }
+            e => {
+                // TODO
+                println!("Event: {e:?}");
+            }
+        }
+    }
 }

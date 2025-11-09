@@ -1,11 +1,13 @@
-use crate::utils;
+use crate::{
+    state::{ActionType, DeviceKind, Entry},
+    utils,
+};
 use anyhow::{Context, Result};
 use pipewire as pw;
 use pw::{
     context::ContextRc, core::CoreRc, registry::RegistryRc, spa::utils::dict::DictRef,
     thread_loop::ThreadLoopRc, types::ObjectType,
 };
-use tokio::sync::mpsc;
 
 struct PWContext {
     thread_loop: ThreadLoopRc,
@@ -34,40 +36,79 @@ impl PWContext {
 
 type PWGlobalObject<'a> = pw::registry::GlobalObject<&'a pw::spa::utils::dict::DictRef>;
 
-fn print_props(otype: &ObjectType, label: &str, props: &Option<&DictRef>) {
-    if let Some(kv) = props {
-        let key = if *otype == ObjectType::Device {
-            "device.description"
-        } else {
-            "node.description"
-        };
-
-        let name = kv.get(key).unwrap_or("<unnamed>");
-        println!("PW:{label:<6} - {name}");
-
-        kv.iter().for_each(|(k, v)| println!("  {k:<20} => {v}"));
-        return;
-    }
-
-    println!("PW:{label}");
-}
-
-fn on_global_change(o: &PWGlobalObject) {
-    match o.type_ {
-        ObjectType::Node if utils::is_audio_node(&o.props) => {
-            print_props(&o.type_, "Node", &o.props);
+fn on_global_change(sender: ActionSender, o: &PWGlobalObject) {
+    let entry = match parse_object(o) {
+        Some(e) => e,
+        None => {
+            return;
         }
-        ObjectType::Device if utils::is_audio_device(&o.props) => {
-            print_props(&o.type_, "Device", &o.props);
-        }
-        _ => {}
+    };
+
+    if let Err(err) = sender.send(ActionType::EntryAdd(entry)) {
+        eprintln!(
+            "pw: failed to dispatch EntryAdd({:?} {}): {err}",
+            o.type_, o.id,
+        );
     }
 }
 
-pub fn start_pw_thread(
-    cancel_token: std::sync::mpsc::Receiver<()>,
-    _sender: Option<mpsc::UnboundedSender<()>>,
-) -> Result<std::thread::JoinHandle<()>> {
+fn parse_object(o: &PWGlobalObject) -> Option<Entry> {
+    let props = match &o.props {
+        Some(props) => props,
+        None => {
+            eprintln!("pw: ignore node without props: {}", o.id);
+            return None;
+        }
+    };
+
+    let dev = match o.type_ {
+        ObjectType::Node if utils::is_audio_node(&o.props) => Entry {
+            id: o.id,
+            volume: None,
+            is_node: true,
+            name: props.get("node.name").map(|v| v.to_string()),
+            device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
+            label: props
+                .get("node.nick")
+                .or_else(|| props.get("node.description"))
+                .map(|v| v.to_string()),
+            description: props.get("node.description").map(|v| v.to_string()),
+            kind: props
+                .get("media.class")
+                .map(|v| v.into())
+                .unwrap_or(DeviceKind::Unknown),
+        },
+        ObjectType::Device if utils::is_audio_device(&o.props) => Entry {
+            id: o.id,
+            volume: None,
+            is_node: false,
+            name: props.get("device.name").map(|v| v.to_string()),
+            device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
+            label: props
+                .get("device.descriotion")
+                .or_else(|| props.get("device.name"))
+                .map(|v| v.to_string()),
+            description: props.get("device.description").map(|v| v.to_string()),
+            kind: props
+                .get("media.class")
+                .map(|v| v.into())
+                .unwrap_or(DeviceKind::Unknown),
+        },
+        _ => {
+            eprintln!("pw: ignore unsupported object type: {}", o.type_);
+            return None;
+        }
+    };
+
+    Some(dev)
+}
+
+type ActionSender = std::sync::mpsc::SyncSender<ActionType>;
+type ActionListener = std::sync::mpsc::Receiver<ActionType>;
+
+pub fn start_pw_thread(cancel_token: std::sync::mpsc::Receiver<()>) -> Result<ActionListener> {
+    let (tx, rx) = std::sync::mpsc::sync_channel::<ActionType>(3);
+
     let h = std::thread::spawn(move || {
         println!("pw: initializing...");
         pw::init();
@@ -81,12 +122,13 @@ pub fn start_pw_thread(
             }
         };
 
+        let sent_tx = tx.clone();
         println!("pw: registering listener...");
         let _listener = pwctx
             .registry
             .add_listener_local()
-            .global(|global| {
-                on_global_change(global);
+            .global(move |global| {
+                on_global_change(sent_tx, global);
             })
             .register();
 
@@ -99,26 +141,8 @@ pub fn start_pw_thread(
 
         println!("pw: shutting down...");
         pwctx.thread_loop.stop();
+        let _ = tx.send(ActionType::Shutdown);
     });
 
-    Ok(h)
-}
-
-fn _main() {
-    let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
-    ctrlc::set_handler(move || {
-        let _ = stop_tx.send(());
-    })
-    .expect("failed to init shutdown handler");
-
-    let h = match start_pw_thread(stop_rx, None) {
-        Ok(h) => h,
-        Err(err) => {
-            eprintln!("failed to start pipewire listener: {err}");
-            return;
-        }
-    };
-
-    h.join().unwrap();
-    println!("bye");
+    Ok(rx)
 }
