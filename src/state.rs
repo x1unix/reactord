@@ -28,6 +28,7 @@ impl From<&str> for DeviceKind {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub id: u32,
@@ -40,12 +41,14 @@ pub struct Entry {
     pub volume: Option<VolumeInfo>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct State {
     pub devices: HashMap<u32, Entry>,
     pub nodes: HashMap<u32, Entry>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum ActionType {
     EntryAdd(Entry),
