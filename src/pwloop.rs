@@ -1,7 +1,10 @@
 use crate::utils;
 use anyhow::{Context, Result};
 use pipewire as pw;
-use pw::{context::ContextRc, core::CoreRc, registry::RegistryRc, thread_loop::ThreadLoopRc};
+use pw::{
+    context::ContextRc, core::CoreRc, registry::RegistryRc, spa::utils::dict::DictRef,
+    thread_loop::ThreadLoopRc, types::ObjectType,
+};
 use tokio::sync::mpsc;
 
 struct PWContext {
@@ -31,8 +34,23 @@ impl PWContext {
 
 type PWGlobalObject<'a> = pw::registry::GlobalObject<&'a pw::spa::utils::dict::DictRef>;
 
+fn print_props(label: &str, props: &Option<&DictRef>) {
+    println!("PW:{label}");
+    if let Some(kv) = props {
+        kv.iter().for_each(|(k, v)| println!("  {k:<20} => {v}"));
+    }
+}
+
 fn on_global_change(o: &PWGlobalObject) {
-    println!("pw: global - {o:?}");
+    match o.type_ {
+        ObjectType::Node if utils::is_audio_node(&o.props) => {
+            print_props("Node", &o.props);
+        }
+        ObjectType::Device if utils::is_audio_device(&o.props) => {
+            print_props("Device", &o.props);
+        }
+        _ => {}
+    }
 }
 
 pub fn start_pw_thread(
