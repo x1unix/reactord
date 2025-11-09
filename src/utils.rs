@@ -99,7 +99,7 @@ pub fn parse_object(o: &PWGlobalObject) -> Option<state::Entry> {
             name: props.get("device.name").map(|v| v.to_string()),
             device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
             label: props
-                .get("device.descriotion")
+                .get("device.description")
                 .or_else(|| props.get("device.name"))
                 .map(|v| v.to_string()),
             description: props.get("device.description").map(|v| v.to_string()),
