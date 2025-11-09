@@ -1,7 +1,9 @@
+use crate::state;
 use pipewire::{
     spa::pod::{Pod, Value, ValueArray, deserialize::PodDeserializer},
     spa::utils::dict::DictRef,
     thread_loop::ThreadLoopRc,
+    types::ObjectType,
 };
 
 pub fn new_thread_loop() -> Result<ThreadLoopRc, pipewire::Error> {
@@ -32,72 +34,85 @@ pub fn is_audio_device(props: &Option<&DictRef>) -> bool {
         .unwrap_or(false)
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Default)]
-pub struct VolumeInfo {
-    volume: Option<f32>,
-    mute: Option<bool>,
-    channel_volumes: Vec<f32>,
+pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
+    // TODO: try_from ?
+    let obj = param.as_object().ok()?;
+    let mut vol_info = state::VolumeInfo::default();
+
+    for prop in obj.props() {
+        let key = prop.key().0;
+        let value_pod = prop.value();
+
+        match key {
+            pipewire::spa::sys::SPA_PROP_volume => {
+                vol_info.volume = value_pod.get_float().ok();
+            }
+            pipewire::spa::sys::SPA_PROP_mute => {
+                vol_info.mute = value_pod.get_bool().ok();
+            }
+            pipewire::spa::sys::SPA_PROP_channelVolumes => {
+                if let Ok((_, Value::ValueArray(ValueArray::Float(volumes)))) =
+                    PodDeserializer::deserialize_any_from(value_pod.as_bytes())
+                {
+                    vol_info.channel_volumes = volumes;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Some(vol_info)
 }
 
-#[allow(dead_code)]
-impl VolumeInfo {
-    pub fn from_pod(param: &Pod) -> Option<VolumeInfo> {
-        // TODO: try_from ?
-        let obj = param.as_object().ok()?;
-        let mut vol_info = VolumeInfo::default();
-
-        for prop in obj.props() {
-            let key = prop.key().0;
-            let value_pod = prop.value();
-
-            match key {
-                pipewire::spa::sys::SPA_PROP_volume => {
-                    vol_info.volume = value_pod.get_float().ok();
-                }
-                pipewire::spa::sys::SPA_PROP_mute => {
-                    vol_info.mute = value_pod.get_bool().ok();
-                }
-                pipewire::spa::sys::SPA_PROP_channelVolumes => {
-                    if let Ok((_, Value::ValueArray(ValueArray::Float(volumes)))) =
-                        PodDeserializer::deserialize_any_from(value_pod.as_bytes())
-                    {
-                        vol_info.channel_volumes = volumes;
-                    }
-                }
-                _ => {}
-            }
+pub type PWGlobalObject<'a> =
+    pipewire::registry::GlobalObject<&'a pipewire::spa::utils::dict::DictRef>;
+pub fn parse_object(o: &PWGlobalObject) -> Option<state::Entry> {
+    let props = match &o.props {
+        Some(props) => props,
+        None => {
+            eprintln!("pw: ignore node without props: {}", o.id);
+            return None;
         }
+    };
 
-        Some(vol_info)
-    }
-
-    pub fn format_display(&self) -> Option<String> {
-        let mut parts = Vec::new();
-
-        if let Some(vol) = self.volume {
-            parts.push(format!("Volume: {:.0}%", vol * 100.0));
+    let dev = match o.type_ {
+        ObjectType::Node if is_audio_node(&o.props) => state::Entry {
+            id: o.id,
+            volume: None,
+            is_node: true,
+            name: props.get("node.name").map(|v| v.to_string()),
+            device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
+            label: props
+                .get("node.nick")
+                .or_else(|| props.get("node.description"))
+                .map(|v| v.to_string()),
+            description: props.get("node.description").map(|v| v.to_string()),
+            kind: props
+                .get("media.class")
+                .map(|v| v.into())
+                .unwrap_or(state::DeviceKind::Unknown),
+        },
+        ObjectType::Device if is_audio_device(&o.props) => state::Entry {
+            id: o.id,
+            volume: None,
+            is_node: false,
+            name: props.get("device.name").map(|v| v.to_string()),
+            device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
+            label: props
+                .get("device.descriotion")
+                .or_else(|| props.get("device.name"))
+                .map(|v| v.to_string()),
+            description: props.get("device.description").map(|v| v.to_string()),
+            kind: props
+                .get("media.class")
+                .map(|v| v.into())
+                .unwrap_or(state::DeviceKind::Unknown),
+        },
+        _ => {
+            // eprintln!("pw: ignore unsupported object type: {}", o.type_);
+            return None;
         }
+    };
 
-        if let Some(m) = self.mute {
-            parts.push(format!("Mute: {}", if m { "ON" } else { "OFF" }));
-        }
-
-        if !self.channel_volumes.is_empty() {
-            let channels = self
-                .channel_volumes
-                .iter()
-                .enumerate()
-                .map(|(i, &v)| format!("Ch{}: {:.0}%", i + 1, v * 100.0))
-                .collect::<Vec<_>>()
-                .join(", ");
-            parts.push(format!("Channels: [{channels}]"));
-        }
-
-        if parts.is_empty() {
-            Some("Property changed".to_string())
-        } else {
-            Some(parts.join(" | "))
-        }
-    }
+    Some(dev)
 }

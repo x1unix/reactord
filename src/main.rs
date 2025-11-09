@@ -3,8 +3,7 @@ mod state;
 mod utils;
 
 use anyhow::Result;
-use state::ActionType;
-use utils::VolumeInfo;
+use state::{ActionType, VolumeInfo};
 
 fn new_cancel_token() -> Result<std::sync::mpsc::Receiver<()>> {
     let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();

@@ -1,13 +1,7 @@
-use crate::{
-    state::{ActionType, DeviceKind, Entry},
-    utils,
-};
+use crate::{state::ActionType, utils};
 use anyhow::{Context, Result};
 use pipewire as pw;
-use pw::{
-    context::ContextRc, core::CoreRc, registry::RegistryRc, thread_loop::ThreadLoopRc,
-    types::ObjectType,
-};
+use pw::{context::ContextRc, core::CoreRc, registry::RegistryRc, thread_loop::ThreadLoopRc};
 
 struct PWContext {
     thread_loop: ThreadLoopRc,
@@ -34,10 +28,8 @@ impl PWContext {
     }
 }
 
-type PWGlobalObject<'a> = pw::registry::GlobalObject<&'a pw::spa::utils::dict::DictRef>;
-
-fn on_global_change(sender: ActionSender, o: &PWGlobalObject) {
-    let entry = match parse_object(o) {
+fn on_global_change(sender: ActionSender, o: &utils::PWGlobalObject) {
+    let entry = match utils::parse_object(o) {
         Some(e) => e,
         None => {
             return;
@@ -50,57 +42,6 @@ fn on_global_change(sender: ActionSender, o: &PWGlobalObject) {
             o.type_, o.id,
         );
     }
-}
-
-fn parse_object(o: &PWGlobalObject) -> Option<Entry> {
-    let props = match &o.props {
-        Some(props) => props,
-        None => {
-            eprintln!("pw: ignore node without props: {}", o.id);
-            return None;
-        }
-    };
-
-    let dev = match o.type_ {
-        ObjectType::Node if utils::is_audio_node(&o.props) => Entry {
-            id: o.id,
-            volume: None,
-            is_node: true,
-            name: props.get("node.name").map(|v| v.to_string()),
-            device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
-            label: props
-                .get("node.nick")
-                .or_else(|| props.get("node.description"))
-                .map(|v| v.to_string()),
-            description: props.get("node.description").map(|v| v.to_string()),
-            kind: props
-                .get("media.class")
-                .map(|v| v.into())
-                .unwrap_or(DeviceKind::Unknown),
-        },
-        ObjectType::Device if utils::is_audio_device(&o.props) => Entry {
-            id: o.id,
-            volume: None,
-            is_node: false,
-            name: props.get("device.name").map(|v| v.to_string()),
-            device_id: props.get("device.id").and_then(|v| v.parse::<u32>().ok()),
-            label: props
-                .get("device.descriotion")
-                .or_else(|| props.get("device.name"))
-                .map(|v| v.to_string()),
-            description: props.get("device.description").map(|v| v.to_string()),
-            kind: props
-                .get("media.class")
-                .map(|v| v.into())
-                .unwrap_or(DeviceKind::Unknown),
-        },
-        _ => {
-            // eprintln!("pw: ignore unsupported object type: {}", o.type_);
-            return None;
-        }
-    };
-
-    Some(dev)
 }
 
 type ActionSender = std::sync::mpsc::SyncSender<ActionType>;
