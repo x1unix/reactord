@@ -5,8 +5,8 @@ use crate::{
 use anyhow::{Context, Result};
 use pipewire as pw;
 use pw::{
-    context::ContextRc, core::CoreRc, registry::RegistryRc, spa::utils::dict::DictRef,
-    thread_loop::ThreadLoopRc, types::ObjectType,
+    context::ContextRc, core::CoreRc, registry::RegistryRc, thread_loop::ThreadLoopRc,
+    types::ObjectType,
 };
 
 struct PWContext {
@@ -95,7 +95,7 @@ fn parse_object(o: &PWGlobalObject) -> Option<Entry> {
                 .unwrap_or(DeviceKind::Unknown),
         },
         _ => {
-            eprintln!("pw: ignore unsupported object type: {}", o.type_);
+            // eprintln!("pw: ignore unsupported object type: {}", o.type_);
             return None;
         }
     };
@@ -128,7 +128,7 @@ pub fn start_pw_thread(cancel_token: std::sync::mpsc::Receiver<()>) -> Result<Ac
             .registry
             .add_listener_local()
             .global(move |global| {
-                on_global_change(sent_tx, global);
+                on_global_change(sent_tx.clone(), global);
             })
             .register();
 

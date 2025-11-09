@@ -31,7 +31,7 @@ fn main() {
                 println!(
                     "PW:{:?} - {}",
                     e.kind,
-                    e.label.as_ref().map(|v| v.as_str()).unwrap_or("<unnamed>")
+                    e.label.as_deref().unwrap_or("<unnamed>")
                 )
             }
             ActionType::Shutdown => {
