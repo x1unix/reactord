@@ -32,6 +32,7 @@ pub fn is_audio_device(props: &Option<&DictRef>) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub struct VolumeInfo {
     volume: Option<f32>,
@@ -39,6 +40,7 @@ pub struct VolumeInfo {
     channel_volumes: Vec<f32>,
 }
 
+#[allow(dead_code)]
 impl VolumeInfo {
     pub fn from_pod(param: &Pod) -> Option<VolumeInfo> {
         // TODO: try_from ?
