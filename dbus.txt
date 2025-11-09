@@ -1,0 +1,110 @@
+signal time=1760429837.309404 sender=org.freedesktop.DBus -> destination=:1.41086 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.41086"
+signal time=1760429837.309416 sender=org.freedesktop.DBus -> destination=:1.41086 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.41086"
+method call time=1760429838.817665 sender=:1.41087 -> destination=org.freedesktop.DBus serial=1 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=Hello
+method return time=1760429838.817674 sender=org.freedesktop.DBus -> destination=:1.41087 serial=4294967295 reply_serial=1
+   string ":1.41087"
+signal time=1760429838.817680 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41087"
+   string ""
+   string ":1.41087"
+signal time=1760429838.817686 sender=org.freedesktop.DBus -> destination=:1.41087 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.41087"
+method call time=1760429838.817708 sender=:1.41087 -> destination=org.freedesktop.DBus serial=2 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameHasOwner
+   string "org.freedesktop.portal.Desktop"
+method return time=1760429838.817712 sender=org.freedesktop.DBus -> destination=:1.41087 serial=4294967295 reply_serial=2
+   boolean true
+method call time=1760429838.817896 sender=:1.41087 -> destination=org.freedesktop.portal.Desktop serial=3 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.DBus.Properties; member=Get
+   string "org.freedesktop.portal.Realtime"
+   string "MaxRealtimePriority"
+method return time=1760429838.865749 sender=:1.23 -> destination=:1.41087 serial=120349 reply_serial=3
+   variant       int32 20
+method call time=1760429838.865801 sender=:1.41087 -> destination=org.freedesktop.portal.Desktop serial=4 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.DBus.Properties; member=Get
+   string "org.freedesktop.portal.Realtime"
+   string "MinNiceLevel"
+method return time=1760429838.865882 sender=:1.23 -> destination=:1.41087 serial=120350 reply_serial=4
+   variant       int32 -15
+method call time=1760429838.865920 sender=:1.41087 -> destination=org.freedesktop.portal.Desktop serial=5 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.DBus.Properties; member=Get
+   string "org.freedesktop.portal.Realtime"
+   string "RTTimeUSecMax"
+method return time=1760429838.865985 sender=:1.23 -> destination=:1.41087 serial=120351 reply_serial=5
+   variant       int64 200000
+signal time=1760429838.866090 sender=org.freedesktop.DBus -> destination=:1.41087 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.41087"
+signal time=1760429838.866102 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41087"
+   string ":1.41087"
+   string ""
+method call time=1760429840.426536 sender=:1.41088 -> destination=org.freedesktop.DBus serial=1 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=Hello
+method return time=1760429840.426542 sender=org.freedesktop.DBus -> destination=:1.41088 serial=4294967295 reply_serial=1
+   string ":1.41088"
+signal time=1760429840.426545 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41088"
+   string ""
+   string ":1.41088"
+signal time=1760429840.426549 sender=org.freedesktop.DBus -> destination=:1.41088 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.41088"
+method call time=1760429840.426560 sender=:1.41088 -> destination=org.freedesktop.DBus serial=2 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameHasOwner
+   string "org.freedesktop.portal.Desktop"
+method return time=1760429840.426562 sender=org.freedesktop.DBus -> destination=:1.41088 serial=4294967295 reply_serial=2
+   boolean true
+method call time=1760429840.426748 sender=:1.41088 -> destination=org.freedesktop.portal.Desktop serial=3 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.DBus.Properties; member=Get
+   string "org.freedesktop.portal.Realtime"
+   string "MaxRealtimePriority"
+signal time=1760429840.429687 sender=org.freedesktop.DBus -> destination=:1.41088 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.41088"
+signal time=1760429840.429697 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41088"
+   string ":1.41088"
+   string ""
+method return time=1760429840.530050 sender=:1.23 -> destination=:1.41088 serial=120352 reply_serial=3
+   variant       int32 20
+method call time=1760429841.665663 sender=:1.41089 -> destination=org.freedesktop.DBus serial=1 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=Hello
+method return time=1760429841.665670 sender=org.freedesktop.DBus -> destination=:1.41089 serial=4294967295 reply_serial=1
+   string ":1.41089"
+signal time=1760429841.665674 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41089"
+   string ""
+   string ":1.41089"
+signal time=1760429841.665678 sender=org.freedesktop.DBus -> destination=:1.41089 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.41089"
+method call time=1760429841.665691 sender=:1.41089 -> destination=org.freedesktop.DBus serial=2 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameHasOwner
+   string "org.freedesktop.portal.Desktop"
+method return time=1760429841.665695 sender=org.freedesktop.DBus -> destination=:1.41089 serial=4294967295 reply_serial=2
+   boolean true
+method call time=1760429841.665890 sender=:1.41089 -> destination=org.freedesktop.portal.Desktop serial=3 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.DBus.Properties; member=Get
+   string "org.freedesktop.portal.Realtime"
+   string "MaxRealtimePriority"
+signal time=1760429841.669127 sender=org.freedesktop.DBus -> destination=:1.41089 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.41089"
+signal time=1760429841.669137 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41089"
+   string ":1.41089"
+   string ""
+method return time=1760429841.754606 sender=:1.23 -> destination=:1.41089 serial=120353 reply_serial=3
+   variant       int32 20
+method call time=1760429842.317074 sender=:1.41090 -> destination=org.freedesktop.DBus serial=1 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=Hello
+method return time=1760429842.317081 sender=org.freedesktop.DBus -> destination=:1.41090 serial=4294967295 reply_serial=1
+   string ":1.41090"
+signal time=1760429842.317084 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41090"
+   string ""
+   string ":1.41090"
+signal time=1760429842.317087 sender=org.freedesktop.DBus -> destination=:1.41090 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameAcquired
+   string ":1.41090"
+method call time=1760429842.317097 sender=:1.41090 -> destination=org.freedesktop.DBus serial=2 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameHasOwner
+   string "org.freedesktop.portal.Desktop"
+method return time=1760429842.317100 sender=org.freedesktop.DBus -> destination=:1.41090 serial=4294967295 reply_serial=2
+   boolean true
+method call time=1760429842.317264 sender=:1.41090 -> destination=org.freedesktop.portal.Desktop serial=3 path=/org/freedesktop/portal/desktop; interface=org.freedesktop.DBus.Properties; member=Get
+   string "org.freedesktop.portal.Realtime"
+   string "MaxRealtimePriority"
+signal time=1760429842.320574 sender=org.freedesktop.DBus -> destination=:1.41090 serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameLost
+   string ":1.41090"
+signal time=1760429842.320582 sender=org.freedesktop.DBus -> destination=(null destination) serial=4294967295 path=/org/freedesktop/DBus; interface=org.freedesktop.DBus; member=NameOwnerChanged
+   string ":1.41090"
+   string ":1.41090"
+   string ""
+method return time=1760429842.416206 sender=:1.23 -> destination=:1.41090 serial=120354 reply_serial=3
+   variant       int32 20
