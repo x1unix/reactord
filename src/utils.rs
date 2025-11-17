@@ -48,7 +48,7 @@ impl Subscriptions {
                 self.disposers.entry(oid).or_default().push(listener);
                 Ok(())
             }
-            false => Err(anyhow!("object {} is not registered", oid)),
+            false => Err(anyhow!("object {oid} is not registered")),
         }
     }
 
@@ -64,15 +64,17 @@ impl Subscriptions {
             }
         }
 
+        self.disposers.remove(&oid);
         self.objects.remove(&oid);
         self.listeners.remove(&oid);
-        self.disposers.remove(&oid);
     }
 
     fn clear(&mut self) {
         self.disposers.clear();
         self.listeners.clear();
-        self.objects.clear();
+
+        // TODO: investigate why this cause 'impl_ext_end_proxy called from wrong context, check thread and locking: Operation not permitted'.
+        // self.objects.clear();
     }
 }
 
