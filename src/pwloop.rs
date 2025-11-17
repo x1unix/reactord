@@ -10,8 +10,10 @@ fn subscribe_device(ctx: PWContextRc, sender: ActionSender, dev: pw::device::Dev
         pw::spa::param::ParamType::Route,
     ]);
 
+    let rm_sender = sender.clone();
     ctx.removed_listener(
         ctx.device_listener_local(dev, move |oid, b| {
+            let vol_sender = sender.clone();
             b.param(move |_seq, param_type, _idx, _next, param| {
                 if param_type != ParamType::Props {
                     return;
@@ -19,12 +21,13 @@ fn subscribe_device(ctx: PWContextRc, sender: ActionSender, dev: pw::device::Dev
 
                 // TODO: support other prop change events?
                 if let Some(vol) = param.and_then(utils::volume_from_pod) {
-                    println!("pw: volume event: Object=Device; Id={oid} Vol={vol:?};");
+                    // println!("pw: volume event: Object=Device; Id={oid} Vol={vol:?};");
+                    let _ = vol_sender.send(ActionType::VolumeChange(oid, vol));
                 }
             })
         }),
         Box::new(move |oid: u32| {
-            if let Err(err) = sender.send(ActionType::EntryRemove(oid)) {
+            if let Err(err) = rm_sender.send(ActionType::EntryRemove(oid)) {
                 eprintln!("pw: failed to dispatch EntryRemove({oid}): {err}",);
             }
         }),
@@ -37,8 +40,11 @@ fn subscribe_node(ctx: PWContextRc, sender: ActionSender, node: pw::node::Node) 
         pw::spa::param::ParamType::Props,
         pw::spa::param::ParamType::Route,
     ]);
+
+    let rm_sender = sender.clone();
     ctx.removed_listener(
         ctx.node_listener_local(node, move |oid, b| {
+            let vol_sender = sender.clone();
             b.param(move |_seq, param_type, _idx, _next, param| {
                 if param_type != ParamType::Props {
                     return;
@@ -46,12 +52,13 @@ fn subscribe_node(ctx: PWContextRc, sender: ActionSender, node: pw::node::Node) 
 
                 // TODO: support other prop change events?
                 if let Some(vol) = param.and_then(utils::volume_from_pod) {
-                    println!("pw: volume event: Object=Node; Id={oid} Vol={vol:?};");
+                    // println!("pw: volume event: Object=Node; Id={oid} Vol={vol:?};");
+                    let _ = vol_sender.send(ActionType::VolumeChange(oid, vol));
                 }
             })
         }),
         Box::new(move |oid: u32| {
-            if let Err(err) = sender.send(ActionType::EntryRemove(oid)) {
+            if let Err(err) = rm_sender.send(ActionType::EntryRemove(oid)) {
                 eprintln!("pw: failed to dispatch EntryRemove({oid}): {err}",);
             }
         }),
