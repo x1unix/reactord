@@ -1,30 +1,28 @@
 use crate::{state::ActionType, utils};
 use anyhow::{Context, Result};
-use pipewire::{self as pw, proxy::ProxyT};
+use pipewire::{self as pw, proxy::ProxyT, spa::param::ParamType};
 use pw::types::ObjectType;
 use utils::{PWContext, PWContextRc, PWGlobalObject};
 
-fn subscribe_device(
-    ctx: PWContextRc,
-    o: &PWGlobalObject,
-    sender: ActionSender,
-    dev: pw::device::Device,
-) -> Result<()> {
+fn subscribe_device(ctx: PWContextRc, sender: ActionSender, dev: pw::device::Device) -> Result<()> {
     dev.subscribe_params(&[
         pw::spa::param::ParamType::Props,
         pw::spa::param::ParamType::Route,
     ]);
 
-    let oid = ctx.device_listener_local(dev, move |_oid, b| {
-        let name = utils::format_object_label(o);
-        b.param(move |_seq, param_type, _idx, _next, _param| {
-            println!("pw: listener event: Object=Device; Node={name}; Type={param_type:?};");
-            // TODO
-        })
-    });
-
     ctx.removed_listener(
-        oid,
+        ctx.device_listener_local(dev, move |oid, b| {
+            b.param(move |_seq, param_type, _idx, _next, param| {
+                if param_type != ParamType::Props {
+                    return;
+                }
+
+                // TODO: support other prop change events?
+                if let Some(vol) = param.and_then(utils::volume_from_pod) {
+                    println!("pw: volume event: Object=Device; Id={oid} Vol={vol:?};");
+                }
+            })
+        }),
         Box::new(move |oid: u32| {
             if let Err(err) = sender.send(ActionType::EntryRemove(oid)) {
                 eprintln!("pw: failed to dispatch EntryRemove({oid}): {err}",);
@@ -34,27 +32,24 @@ fn subscribe_device(
     Ok(())
 }
 
-fn subscribe_node(
-    ctx: PWContextRc,
-    o: &PWGlobalObject,
-    sender: ActionSender,
-    node: pw::node::Node,
-) -> Result<()> {
+fn subscribe_node(ctx: PWContextRc, sender: ActionSender, node: pw::node::Node) -> Result<()> {
     node.subscribe_params(&[
         pw::spa::param::ParamType::Props,
         pw::spa::param::ParamType::Route,
     ]);
-
-    let oid = ctx.node_listener_local(node, move |_oid, b| {
-        let name = utils::format_object_label(o);
-        b.param(move |_seq, param_type, _idx, _next, _param| {
-            println!("pw: listener event: Object=Node; Node={name}; Type={param_type:?};");
-            // TODO
-        })
-    });
-
     ctx.removed_listener(
-        oid,
+        ctx.node_listener_local(node, move |oid, b| {
+            b.param(move |_seq, param_type, _idx, _next, param| {
+                if param_type != ParamType::Props {
+                    return;
+                }
+
+                // TODO: support other prop change events?
+                if let Some(vol) = param.and_then(utils::volume_from_pod) {
+                    println!("pw: volume event: Object=Node; Id={oid} Vol={vol:?};");
+                }
+            })
+        }),
         Box::new(move |oid: u32| {
             if let Err(err) = sender.send(ActionType::EntryRemove(oid)) {
                 eprintln!("pw: failed to dispatch EntryRemove({oid}): {err}",);
@@ -88,7 +83,7 @@ fn on_global_change(ctx: PWContextRc, sender: ActionSender, o: &PWGlobalObject) 
                 );
             }
 
-            subscribe_node(ctx, o, sender, node)?;
+            subscribe_node(ctx, sender, node)?;
         }
         ObjectType::Device if utils::is_audio_device(&o.props) => {
             let dev: pw::device::Device = ctx.registry.bind(o).with_context(|| {
@@ -103,7 +98,7 @@ fn on_global_change(ctx: PWContextRc, sender: ActionSender, o: &PWGlobalObject) 
                 );
             }
 
-            subscribe_device(ctx, o, sender, dev)?;
+            subscribe_device(ctx, sender, dev)?;
         }
         _ => {}
     };
