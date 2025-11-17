@@ -79,6 +79,17 @@ pub struct Entry {
     pub volume: Option<VolumeInfo>,
 }
 
+impl Entry {
+    pub fn get_label(&self) -> &str {
+        self.label
+            .as_ref()
+            .or(self.description.as_ref())
+            .or(self.name.as_ref())
+            .map(|v| v.as_str())
+            .unwrap_or_else(|| "<unnamed>")
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct State {
@@ -89,7 +100,7 @@ pub struct State {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ActionType {
-    EntryAdd(Entry),
+    EntryAdd(u32, Entry),
     EntryRemove(u32),
     VolumeChange(u32, VolumeInfo),
     Shutdown,

@@ -26,9 +26,9 @@ fn main() {
 
     for msg in h {
         match msg {
-            ActionType::EntryAdd(e) => {
+            ActionType::EntryAdd(oid, e) => {
                 println!(
-                    "PW:{:?} - {}",
+                    "#{oid} PW:{:?} - {}",
                     e.kind,
                     e.label.as_deref().unwrap_or("<unnamed>")
                 )
