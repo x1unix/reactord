@@ -67,14 +67,16 @@ fn subscribe_node(ctx: PWContextRc, sender: ActionSender, node: pw::node::Node) 
                 let span = debug_span!("node_listener", node_id);
                 let _g = span.enter();
 
-                if param_type != ParamType::Props {
-                    return;
-                }
-
-                // TODO: support other prop change events?
-                if let Some(vol) = param.and_then(utils::volume_from_pod) {
-                    debug!(%node_id, volume = ?vol, "node volume change");
-                    let _ = vol_sender.send(ActionType::VolumeChange(node_id, vol));
+                match param_type {
+                    ParamType::Props => {
+                        if let Some(vol) = param.and_then(utils::volume_from_pod) {
+                            debug!(%node_id, volume = ?vol, "node volume change");
+                            let _ = vol_sender.send(ActionType::VolumeChange(node_id, vol));
+                        }
+                    }
+                    _ => {
+                        debug!(?param_type, "skip unsupported node param type");
+                    }
                 }
             })
         }),

@@ -211,21 +211,31 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
     let obj = param.as_object().ok()?;
     let mut vol_info = state::VolumeInfo::default();
 
+    let mut found = false;
     for prop in obj.props() {
         let key = prop.key().0;
         let value_pod = prop.value();
 
         match key {
             pipewire::spa::sys::SPA_PROP_volume => {
+                found = true;
                 vol_info.volume = value_pod.get_float().ok();
             }
             pipewire::spa::sys::SPA_PROP_mute => {
+                found = true;
                 vol_info.mute = value_pod.get_bool().ok();
             }
             pipewire::spa::sys::SPA_PROP_channelVolumes => {
                 if let Ok((_, Value::ValueArray(ValueArray::Float(volumes)))) =
                     PodDeserializer::deserialize_any_from(value_pod.as_bytes())
                 {
+                    // HACK: for nodes - pipewire doesn't provide a master volume but only per-channel volume.
+                    // For convenience - populate master volume value.
+                    if vol_info.volume.is_none() && !volumes.is_empty() {
+                        vol_info.volume = Some(volumes[0]);
+                    }
+
+                    found = true;
                     vol_info.channel_volumes = volumes;
                 }
             }
@@ -233,7 +243,7 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
         }
     }
 
-    Some(vol_info)
+    if found { Some(vol_info) } else { None }
 }
 
 pub type PWGlobalObject<'a> =
