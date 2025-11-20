@@ -5,19 +5,8 @@ mod utils;
 use anyhow::{Context, Result};
 use state::{ActionType, State, VolumeInfo};
 use tokio::sync::oneshot;
-use tracing::{debug, error, info, info_span, warn};
+use tracing::{error, info, info_span, warn};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
-
-fn new_cancel_token() -> oneshot::Receiver<()> {
-    let (stop_tx, stop_rx) = oneshot::channel::<()>();
-
-    tokio::spawn(async move {
-        let _ = tokio::signal::ctrl_c().await;
-        let _ = stop_tx.send(());
-    });
-
-    stop_rx
-}
 
 fn format_volume(vol: &VolumeInfo) -> String {
     let status = if vol.mute.unwrap_or(false) {
@@ -56,7 +45,7 @@ fn init_logger() {
 async fn main() {
     init_logger();
     if let Err(err) = run().await {
-        eprintln!("Error: {err}");
+        error!("Error: {err}");
     }
 }
 
@@ -85,7 +74,6 @@ async fn handle_action(state: &mut State, msg: ActionType) {
                 Some(entry) => {
                     // TODO
                     info!(oid, ?entry, "EntryRemove");
-                    return;
                 }
                 None => {
                     warn!(oid, "got VolumeChange event for orphan device/node");
@@ -94,7 +82,6 @@ async fn handle_action(state: &mut State, msg: ActionType) {
         }
         ActionType::Shutdown => {
             info!("bye!");
-            return;
         }
     }
 }
