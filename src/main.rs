@@ -4,16 +4,19 @@ mod utils;
 
 use anyhow::{Context, Result};
 use state::{ActionType, State, VolumeInfo};
+use tokio::sync::oneshot;
 use tracing::{debug, error, info, info_span, warn};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-fn new_cancel_token() -> Result<std::sync::mpsc::Receiver<()>> {
-    let (stop_tx, stop_rx) = std::sync::mpsc::channel::<()>();
-    ctrlc::set_handler(move || {
-        let _ = stop_tx.send(());
-    })?;
+fn new_cancel_token() -> oneshot::Receiver<()> {
+    let (stop_tx, stop_rx) = oneshot::channel::<()>();
 
-    Ok(stop_rx)
+    tokio::spawn(async move {
+        let _ = tokio::signal::ctrl_c().await;
+        let _ = stop_tx.send(());
+    });
+
+    stop_rx
 }
 
 fn format_volume(vol: &VolumeInfo) -> String {
@@ -49,57 +52,72 @@ fn init_logger() {
         .init();
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     init_logger();
-    if let Err(err) = run() {
+    if let Err(err) = run().await {
         eprintln!("Error: {err}");
     }
 }
 
-fn run() -> Result<()> {
-    let stop_rx = new_cancel_token().context("failed to init shutdown handler")?;
-    let h = pwloop::start_pw_thread(stop_rx).context("failed to start pipewire listener")?;
-    let mut state = State::default();
-
-    let span = info_span!("msg_listener");
-    let _h = span.enter();
-
-    for msg in h {
-        match msg {
-            ActionType::EntryAdd(oid, entry) => {
-                info!(oid, ?entry, "EntryAdd");
-                state.devices.insert(oid, entry);
+async fn handle_action(state: &mut State, msg: ActionType) {
+    match msg {
+        ActionType::EntryAdd(oid, entry) => {
+            info!(oid, ?entry, "EntryAdd");
+            state.devices.insert(oid, entry);
+        }
+        ActionType::VolumeChange(oid, vol) => match state.devices.get(&oid) {
+            Some(e) => {
+                info!(
+                    oid,
+                    entry_name = e.get_label(),
+                    ?vol,
+                    percent = format_volume(&vol),
+                    "VolumeChange"
+                );
             }
-            ActionType::VolumeChange(oid, vol) => match state.devices.get(&oid) {
-                Some(e) => {
-                    info!(
-                        oid,
-                        entry_name = e.get_label(),
-                        ?vol,
-                        percent = format_volume(&vol),
-                        "VolumeChange"
-                    );
+            None => {
+                warn!(oid, "got VolumeChange event for orphan device/node");
+            }
+        },
+        ActionType::EntryRemove(oid) => {
+            match state.devices.get(&oid) {
+                Some(entry) => {
+                    // TODO
+                    info!(oid, ?entry, "EntryRemove");
+                    return;
                 }
                 None => {
                     warn!(oid, "got VolumeChange event for orphan device/node");
                 }
-            },
-            ActionType::EntryRemove(oid) => {
-                match state.devices.get(&oid) {
-                    Some(entry) => {
-                        // TODO
-                        info!(oid, ?entry, "EntryRemove");
-                        continue;
-                    }
-                    None => {
-                        warn!(oid, "got VolumeChange event for orphan device/node");
-                    }
-                }
             }
-            ActionType::Shutdown => {
-                info!("bye!");
+        }
+        ActionType::Shutdown => {
+            info!("bye!");
+            return;
+        }
+    }
+}
+
+async fn run() -> Result<()> {
+    let span = info_span!("msg_listener");
+    let _h = span.enter();
+
+    let (stop_tx, stop_rx) = oneshot::channel::<()>();
+    let mut h = pwloop::start_pw_thread(stop_rx).context("failed to start pipewire listener")?;
+    let shutdown_signal = tokio::signal::ctrl_c();
+    tokio::pin!(shutdown_signal);
+
+    let mut state = State::default();
+    loop {
+        tokio::select! {
+            _ = &mut shutdown_signal => {
+                let _ = stop_tx.send(());
                 break;
-            }
+            },
+            Some(msg) = h.recv() => {
+                handle_action(&mut state, msg).await;
+            },
         }
     }
 

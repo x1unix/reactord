@@ -2,6 +2,7 @@ use crate::{state::ActionType, utils};
 use anyhow::{Context, Result};
 use pipewire::{self as pw, proxy::ProxyT, spa::param::ParamType};
 use pw::types::ObjectType;
+use tokio::sync::oneshot;
 use tracing::{debug, debug_span, error, info};
 use utils::{PWContext, PWContextRc, PWGlobalObject};
 
@@ -40,7 +41,7 @@ fn subscribe_device(ctx: PWContextRc, sender: ActionSender, dev: pw::device::Dev
             let _g = span.enter();
 
             debug!(%oid, "device removed");
-            if let Err(err) = rm_sender.send(ActionType::EntryRemove(oid)) {
+            if let Err(err) = rm_sender.blocking_send(ActionType::EntryRemove(oid)) {
                 error!(%oid, ?err, "failed to dispatch EntryRemove");
             }
         }),
@@ -71,7 +72,8 @@ fn subscribe_node(ctx: PWContextRc, sender: ActionSender, node: pw::node::Node) 
                     ParamType::Props => {
                         if let Some(vol) = param.and_then(utils::volume_from_pod) {
                             debug!(%node_id, volume = ?vol, "node volume change");
-                            let _ = vol_sender.send(ActionType::VolumeChange(node_id, vol));
+                            let _ =
+                                vol_sender.blocking_send(ActionType::VolumeChange(node_id, vol));
                         }
                     }
                     _ => {
@@ -85,7 +87,7 @@ fn subscribe_node(ctx: PWContextRc, sender: ActionSender, node: pw::node::Node) 
             let _g = span.enter();
 
             debug!(%oid, "node removed");
-            if let Err(err) = rm_sender.send(ActionType::EntryRemove(oid)) {
+            if let Err(err) = rm_sender.blocking_send(ActionType::EntryRemove(oid)) {
                 error!(%oid, ?err, "failed to dispatch EntryRemove");
             }
         }),
@@ -116,7 +118,7 @@ fn on_global_change(ctx: PWContextRc, sender: ActionSender, o: &PWGlobalObject) 
 
             let node_id = node.upcast_ref().id();
             debug!(node_id, label = &label, "new node");
-            if let Err(err) = sender.send(ActionType::EntryAdd(node_id, entry)) {
+            if let Err(err) = sender.blocking_send(ActionType::EntryAdd(node_id, entry)) {
                 error!(
                     node_id,
                     label = &label,
@@ -133,7 +135,7 @@ fn on_global_change(ctx: PWContextRc, sender: ActionSender, o: &PWGlobalObject) 
 
             let dev_id = dev.upcast_ref().id();
             debug!(dev_id, label = &label, "new device");
-            if let Err(err) = sender.send(ActionType::EntryAdd(dev_id, entry)) {
+            if let Err(err) = sender.blocking_send(ActionType::EntryAdd(dev_id, entry)) {
                 error!(dev_id, label = &label, "failed to dispatch EntryAdd: {err}");
             }
 
@@ -145,11 +147,15 @@ fn on_global_change(ctx: PWContextRc, sender: ActionSender, o: &PWGlobalObject) 
     Ok(())
 }
 
-type ActionSender = std::sync::mpsc::SyncSender<ActionType>;
-type ActionListener = std::sync::mpsc::Receiver<ActionType>;
+type ActionSender = tokio::sync::mpsc::Sender<ActionType>;
+type ActionListener = tokio::sync::mpsc::Receiver<ActionType>;
 
-pub fn start_pw_thread(cancel_token: std::sync::mpsc::Receiver<()>) -> Result<ActionListener> {
-    let (tx, rx) = std::sync::mpsc::sync_channel::<ActionType>(3);
+/// Starts a separate thread to listen for PipeWire events.
+/// Thread is terminated as soon as a new message received from a cancellation token channel.
+///
+/// Returns event channel to listen for incoming events.
+pub fn start_pw_thread(cancel_token: oneshot::Receiver<()>) -> Result<ActionListener> {
+    let (tx, rx) = tokio::sync::mpsc::channel::<ActionType>(3);
 
     let _h = std::thread::spawn(move || {
         let span = tracing::info_span!("pw");
@@ -186,11 +192,11 @@ pub fn start_pw_thread(cancel_token: std::sync::mpsc::Receiver<()>) -> Result<Ac
         pwctx.begin(|| {
             // Suspend thread until cancellation signal is sent.
             // PW's ThreadLoop already manages its own thread under the hood.
-            cancel_token.recv().ok();
+            cancel_token.blocking_recv().ok();
             info!("shutting down...");
         });
 
-        let _ = tx.send(ActionType::Shutdown);
+        let _ = tx.blocking_send(ActionType::Shutdown);
     });
 
     Ok(rx)

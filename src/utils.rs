@@ -168,7 +168,7 @@ impl PWContext {
     /// Starts event loop.
     ///
     /// Shuts down event loop and removes all event listeners as soon as passed method returns.
-    pub fn begin(&self, cb: impl Fn()) {
+    pub fn begin(&self, cb: impl FnOnce()) {
         self.thread_loop.start();
 
         // Run until callback completes.
