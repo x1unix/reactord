@@ -242,22 +242,8 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
                     vol_info.channel_volumes = vec_to_linear(volumes);
                 }
             }
-            pipewire::spa::sys::SPA_PROP_monitorVolumes => {
-                if let Ok((_, Value::ValueArray(ValueArray::Float(volumes)))) =
-                    PodDeserializer::deserialize_any_from(value_pod.as_bytes())
-                {
-                    debug!(?volumes, "monitor volumes");
-                }
-            }
-            pipewire::spa::sys::SPA_PROP_softVolumes => {
-                if let Ok((_, Value::ValueArray(ValueArray::Float(volumes)))) =
-                    PodDeserializer::deserialize_any_from(value_pod.as_bytes())
-                {
-                    debug!(?volumes, "soft volumes");
-                }
-            }
             _ => {
-                debug!(?key, "Skip prop key");
+                // debug!(?key, "Skip prop key");
             }
         }
     }

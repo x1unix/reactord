@@ -73,7 +73,13 @@ fn run() -> Result<()> {
             }
             ActionType::VolumeChange(oid, vol) => match state.devices.get(&oid) {
                 Some(e) => {
-                    info!(oid, entry_name = e.get_label(), ?vol, "VolumeChange");
+                    info!(
+                        oid,
+                        entry_name = e.get_label(),
+                        ?vol,
+                        percent = format_volume(&vol),
+                        "VolumeChange"
+                    );
                 }
                 None => {
                     warn!(oid, "got VolumeChange event for orphan device/node");
