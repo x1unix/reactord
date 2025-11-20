@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Mul};
 
 use crate::state;
 use anyhow::{Context, Result, anyhow};
@@ -207,12 +207,13 @@ pub fn is_audio_device(props: &Option<&DictRef>) -> bool {
         .unwrap_or(false)
 }
 
-fn to_linear(v: f32) -> f32 {
-    v.clamp(0.0, 1.0).powf(1.0 / 3.0)
+fn normalize_volume_value(v: f32) -> f32 {
+    // Convert value to linear and then to percent.
+    v.clamp(0.0, 1.0).powf(1.0 / 3.0).mul(100.0).floor()
 }
 
-fn vec_to_linear(v: Vec<f32>) -> Vec<f32> {
-    v.iter().map(|v| to_linear(*v)).collect()
+fn normalize_channel_volumes(v: Vec<f32>) -> Vec<f32> {
+    v.iter().map(|v| normalize_volume_value(*v)).collect()
 }
 
 pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
@@ -228,7 +229,7 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
         match key {
             pipewire::spa::sys::SPA_PROP_volume => {
                 found = true;
-                vol_info.volume = value_pod.get_float().map(to_linear).ok();
+                vol_info.volume = value_pod.get_float().map(normalize_volume_value).ok();
             }
             pipewire::spa::sys::SPA_PROP_mute => {
                 found = true;
@@ -239,7 +240,7 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
                     PodDeserializer::deserialize_any_from(value_pod.as_bytes())
                 {
                     found = true;
-                    vol_info.channel_volumes = vec_to_linear(volumes);
+                    vol_info.channel_volumes = normalize_channel_volumes(volumes);
                 }
             }
             _ => {
@@ -252,7 +253,7 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
         // HACK: for Nodes, PW Pipewire sets master volume to 1.0 and puts actual volume into
         // channel_volumes.
         match vol_info.volume {
-            Some(1.0) if !vol_info.channel_volumes.is_empty() => {
+            Some(100.0) if !vol_info.channel_volumes.is_empty() => {
                 vol_info.volume = Some(vol_info.channel_volumes[0]);
             }
             None if !vol_info.channel_volumes.is_empty() => {
