@@ -229,12 +229,6 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
                 if let Ok((_, Value::ValueArray(ValueArray::Float(volumes)))) =
                     PodDeserializer::deserialize_any_from(value_pod.as_bytes())
                 {
-                    // HACK: for nodes - pipewire doesn't provide a master volume but only per-channel volume.
-                    // For convenience - populate master volume value.
-                    if vol_info.volume.is_none() && !volumes.is_empty() {
-                        vol_info.volume = Some(volumes[0]);
-                    }
-
                     found = true;
                     vol_info.channel_volumes = volumes;
                 }
@@ -243,7 +237,23 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
         }
     }
 
-    if found { Some(vol_info) } else { None }
+    if found {
+        // HACK: for Nodes, PW Pipewire sets master volume to 1.0 and puts actual volume into
+        // channel_volumes.
+        match vol_info.volume {
+            Some(1.0) if !vol_info.channel_volumes.is_empty() => {
+                vol_info.volume = Some(vol_info.channel_volumes[0]);
+            }
+            None if !vol_info.channel_volumes.is_empty() => {
+                vol_info.volume = Some(vol_info.channel_volumes[0]);
+            }
+            _ => {}
+        }
+
+        Some(vol_info)
+    } else {
+        None
+    }
 }
 
 pub type PWGlobalObject<'a> =
