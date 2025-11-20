@@ -26,7 +26,6 @@ fn format_volume(vol: &VolumeInfo) -> String {
     // Bad but works for debug
     // NOTE: for most real devices, volume will be in channel_volumes (as they're stereo).
     let level = match vol.volume {
-        // FIXME: why volume here is always empty?
         Some(v) => format!("{v}%"),
         None if !vol.channel_volumes.is_empty() => vol
             .channel_volumes
