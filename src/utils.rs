@@ -207,6 +207,14 @@ pub fn is_audio_device(props: &Option<&DictRef>) -> bool {
         .unwrap_or(false)
 }
 
+fn to_linear(v: f32) -> f32 {
+    v.clamp(0.0, 1.0).powf(1.0 / 3.0)
+}
+
+fn vec_to_linear(v: Vec<f32>) -> Vec<f32> {
+    v.iter().map(|v| to_linear(*v)).collect()
+}
+
 pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
     // TODO: try_from ?
     let obj = param.as_object().ok()?;
@@ -220,7 +228,7 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
         match key {
             pipewire::spa::sys::SPA_PROP_volume => {
                 found = true;
-                vol_info.volume = value_pod.get_float().ok();
+                vol_info.volume = value_pod.get_float().map(to_linear).ok();
             }
             pipewire::spa::sys::SPA_PROP_mute => {
                 found = true;
@@ -231,7 +239,7 @@ pub fn volume_from_pod(param: &Pod) -> Option<state::VolumeInfo> {
                     PodDeserializer::deserialize_any_from(value_pod.as_bytes())
                 {
                     found = true;
-                    vol_info.channel_volumes = volumes;
+                    vol_info.channel_volumes = vec_to_linear(volumes);
                 }
             }
             pipewire::spa::sys::SPA_PROP_monitorVolumes => {
