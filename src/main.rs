@@ -128,21 +128,27 @@ async fn handle_action(state: &mut State, msg: ActionType) {
                 e.volume = Some(vol);
             }
             Some(e) => {
-                // info!(
-                //     oid,
-                //     entry_name = e.get_label(),
-                //     ?vol,
-                //     percent = format_volume(&vol),
-                //     "VolumeChange"
-                // );
                 if let Some(current) = e.volume.as_ref()
-                    && current != &vol
+                    && current == &vol
                 {
                     // skip duplicate event fired when playback/resume happens
+                    info!(
+                        oid,
+                        entry_name = e.get_label(),
+                        ?vol,
+                        percent = format_volume(&vol),
+                        "volume didn't change, skip"
+                    );
                     return;
                 }
 
-                info!(oid, new_val = ?vol, old_val = ?e.volume.as_ref(), "VolumeChange");
+                info!(
+                    oid,
+                    entry_name = e.get_label(),
+                    ?vol,
+                    percent = format_volume(&vol),
+                    "VolumeChange"
+                );
 
                 let prev_notification = state.notification_ids.get(&oid).copied();
                 match dispatch_volume_change(prev_notification, e, vol).await {
