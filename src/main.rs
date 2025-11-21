@@ -114,21 +114,19 @@ async fn handle_action(state: &mut State, msg: ActionType) {
             state.devices.insert(oid, entry);
         }
         ActionType::VolumeChange(oid, vol) => match state.devices.get_mut(&oid) {
-            Some(e) => {
+            Some(e) if e.volume.is_none() => {
                 // After initial subscribe - first message is fired immediately to send a current
                 // state.
-                if e.volume.is_none() {
-                    debug!(
-                        oid,
-                        entry_name = e.get_label(),
-                        ?vol,
-                        "received volume info for first time, skip notification"
-                    );
+                debug!(
+                    oid,
+                    entry_name = e.get_label(),
+                    ?vol,
+                    "received volume info for first time, skip notification"
+                );
 
-                    e.volume = Some(vol);
-                    return;
-                }
-
+                e.volume = Some(vol);
+            }
+            Some(e) => {
                 info!(
                     oid,
                     entry_name = e.get_label(),
