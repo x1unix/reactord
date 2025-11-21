@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use notify_rust::NotificationHandle;
+
 #[derive(Debug, Clone)]
 pub enum DeviceKind {
     /// Unknown is fallback value.
@@ -93,20 +95,23 @@ impl Entry {
 #[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct State {
-    pub notification_ids: HashMap<u32, u32>,
+    pub notifications: HashMap<u32, NotificationHandle>,
     pub devices: HashMap<u32, Entry>,
     pub nodes: HashMap<u32, Entry>,
 }
 
 impl State {
-    pub fn remove_entry(&mut self, id: &u32) {
+    pub fn remove_entry(&mut self, id: &u32) -> Option<NotificationHandle> {
         self.devices.remove(id);
-        self.notification_ids.remove(id);
+        self.notifications.remove(id)
     }
 
-    pub fn clear_entries(&mut self) {
+    pub fn clear_entries(&mut self) -> Vec<NotificationHandle> {
         self.devices.clear();
-        self.notification_ids.clear();
+        self.notifications
+            .drain()
+            .map(|(_, handle)| handle)
+            .collect()
     }
 }
 

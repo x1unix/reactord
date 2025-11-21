@@ -3,7 +3,7 @@ mod state;
 mod utils;
 
 use anyhow::{Context, Result};
-use notify_rust::{Hint, Notification};
+use notify_rust::{Hint, Notification, NotificationHandle};
 use state::{ActionType, Entry, State, VolumeInfo};
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, info_span, warn};
@@ -28,12 +28,7 @@ async fn main() {
     }
 }
 
-async fn dispatch_volume_change(
-    prev_notification: Option<u32>,
-    entry: &mut Entry,
-    vol: VolumeInfo,
-) -> Option<u32> {
-    // TODO: support outputs with different volumes per channel.
+fn build_volume_notification(entry: &Entry, vol: &VolumeInfo) -> Option<Notification> {
     let val = vol.volume.or_else(|| {
         if vol.channel_volumes.is_empty() {
             None
@@ -42,25 +37,20 @@ async fn dispatch_volume_change(
         }
     });
 
-    let mut n = Notification::new();
-    if let Some(h) = prev_notification {
-        n.id(h);
-    }
+    let mut notification = Notification::new();
 
     match (vol.mute, val) {
         (Some(is_muted), _) if is_muted => {
-            // TODO
             let s = format!("{} - Muted", entry.get_label());
-            n.summary(s.as_str());
+            notification
+                .summary(s.as_str())
+                .icon("audio-volume-muted-symbolic");
         }
-        // (Some(is_muted), _) if !is_muted => {
-        //     let s = format!("{} - Unmuted", entry.get_label());
-        //     n.summary(s.as_str());
-        // }
         (_, Some(value)) => {
             let v = value.round() as i32;
             let s = format!("{} - {}%", entry.get_label(), v);
-            n.summary(s.as_str())
+            notification
+                .summary(s.as_str())
                 .icon("audio-volume-high-symbolic")
                 .hint(Hint::CustomInt("value".to_string(), v));
         }
@@ -71,19 +61,43 @@ async fn dispatch_volume_change(
                 entry_id = entry.id,
                 "can't send notification as no mute or volume info"
             );
-            return prev_notification;
+            return None;
         }
     }
 
-    // TODO: run and forget to avoid skipping new events
-    n.urgency(notify_rust::Urgency::Normal)
-        .timeout(std::time::Duration::from_secs(5))
-        .finalize()
+    notification
+        .urgency(notify_rust::Urgency::Normal)
+        .timeout(std::time::Duration::from_secs(5));
+
+    Some(notification)
+}
+
+async fn show_volume_notification(notification: Notification) -> Option<NotificationHandle> {
+    notification
         .show_async()
         .await
         .inspect_err(|err| error!("Failed to send notification: {err}"))
-        .map(|v| v.id())
         .ok()
+}
+
+async fn update_volume_notification(
+    mut handle: NotificationHandle,
+    notification: Notification,
+) -> Option<NotificationHandle> {
+    tokio::task::spawn_blocking(move || {
+        *handle = notification;
+        handle.update();
+        handle
+    })
+    .await
+    .inspect_err(|err| error!("Failed to update notification: {err}"))
+    .ok()
+}
+
+async fn close_notification(handle: NotificationHandle) {
+    let _ = tokio::task::spawn_blocking(move || handle.close())
+        .await
+        .inspect_err(|err| error!("Failed to close notification: {err}"));
 }
 
 #[cfg(target_os = "linux")]
@@ -124,15 +138,26 @@ async fn handle_action(state: &mut State, msg: ActionType) {
 
                 info!(oid, entry_name = e.get_label(), ?vol, "VolumeChange");
 
-                let prev_notification = state.notification_ids.get(&oid).copied();
-                match dispatch_volume_change(prev_notification, e, vol).await {
-                    Some(nid) => {
-                        state.notification_ids.insert(oid, nid);
-                    }
+                let notification = match build_volume_notification(e, &vol) {
+                    Some(notification) => notification,
                     None => {
-                        state.notification_ids.remove(&oid);
+                        if let Some(handle) = state.notifications.remove(&oid) {
+                            close_notification(handle).await;
+                        }
+                        e.volume = Some(vol);
+                        return;
                     }
+                };
+
+                if let Some(handle) = state.notifications.remove(&oid) {
+                    if let Some(updated) = update_volume_notification(handle, notification).await {
+                        state.notifications.insert(oid, updated);
+                    }
+                } else if let Some(handle) = show_volume_notification(notification).await {
+                    state.notifications.insert(oid, handle);
                 }
+
+                e.volume = Some(vol);
             }
             None => {
                 warn!(oid, "got VolumeChange event for orphan device/node");
@@ -141,14 +166,18 @@ async fn handle_action(state: &mut State, msg: ActionType) {
         ActionType::EntryRemove(oid) => match state.devices.get(&oid) {
             Some(entry) => {
                 info!(oid, ?entry, "EntryRemove");
-                state.remove_entry(&oid);
+                if let Some(handle) = state.remove_entry(&oid) {
+                    close_notification(handle).await;
+                }
             }
             None => {
                 warn!(oid, "got VolumeChange event for orphan device/node");
             }
         },
         ActionType::Shutdown => {
-            state.clear_entries();
+            for handle in state.clear_entries() {
+                close_notification(handle).await;
+            }
             info!("bye!");
         }
     }
