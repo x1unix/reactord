@@ -75,6 +75,7 @@ async fn dispatch_volume_change(
         }
     }
 
+    // TODO: run and forget to avoid skipping new events
     n.urgency(notify_rust::Urgency::Normal)
         .timeout(std::time::Duration::from_secs(5))
         .finalize()
