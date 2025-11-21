@@ -27,7 +27,7 @@ impl From<&str> for DeviceKind {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct VolumeInfo {
     pub volume: Option<f32>,
     pub mute: Option<bool>,

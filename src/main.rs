@@ -128,13 +128,21 @@ async fn handle_action(state: &mut State, msg: ActionType) {
                 e.volume = Some(vol);
             }
             Some(e) => {
-                info!(
-                    oid,
-                    entry_name = e.get_label(),
-                    ?vol,
-                    percent = format_volume(&vol),
-                    "VolumeChange"
-                );
+                // info!(
+                //     oid,
+                //     entry_name = e.get_label(),
+                //     ?vol,
+                //     percent = format_volume(&vol),
+                //     "VolumeChange"
+                // );
+                if let Some(current) = e.volume.as_ref()
+                    && current != &vol
+                {
+                    // skip duplicate event fired when playback/resume happens
+                    return;
+                }
+
+                info!(oid, new_val = ?vol, old_val = ?e.volume.as_ref(), "VolumeChange");
 
                 let prev_notification = state.notification_ids.get(&oid).copied();
                 match dispatch_volume_change(prev_notification, e, vol).await {
@@ -170,9 +178,12 @@ async fn handle_action(state: &mut State, msg: ActionType) {
 async fn run() -> Result<()> {
     let span = info_span!("msg_listener");
     let _h = span.enter();
+    let mut listen_cfg = pwloop::ListenerConfig::default();
+    listen_cfg.set_ignore_list(vec!["easyeffects_sink".to_string()]);
 
     let (stop_tx, stop_rx) = oneshot::channel::<()>();
-    let mut h = pwloop::start_pw_thread(stop_rx).context("failed to start pipewire listener")?;
+    let mut h = pwloop::start_pw_thread(stop_rx, listen_cfg)
+        .context("failed to start pipewire listener")?;
     let shutdown_signal = tokio::signal::ctrl_c();
     tokio::pin!(shutdown_signal);
 
