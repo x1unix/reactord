@@ -77,6 +77,7 @@ async fn dispatch_volume_change(
 
     n.urgency(notify_rust::Urgency::Normal)
         .timeout(std::time::Duration::from_secs(5))
+        .finalize()
         .show_async()
         .await
         .inspect_err(|err| error!("Failed to send notification: {err}"))
