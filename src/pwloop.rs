@@ -165,12 +165,27 @@ fn on_global_change(
 type ActionSender = tokio::sync::mpsc::Sender<ActionType>;
 type ActionListener = tokio::sync::mpsc::Receiver<ActionType>;
 
-#[derive(Default)]
 pub struct ListenerConfig {
+    message_buffer_size: usize,
     ignore_list: Option<std::collections::HashSet<String>>,
 }
 
+impl Default for ListenerConfig {
+    fn default() -> Self {
+        Self {
+            message_buffer_size: 5,
+            ignore_list: Default::default(),
+        }
+    }
+}
+
 impl ListenerConfig {
+    #[allow(dead_code)]
+    pub fn set_message_buffer_size(&mut self, s: usize) {
+        self.message_buffer_size = s;
+    }
+
+    #[allow(dead_code)]
     pub fn set_ignore_list(&mut self, ignore_list: Vec<String>) {
         self.ignore_list = if ignore_list.is_empty() {
             None
@@ -200,7 +215,7 @@ pub fn start_pw_thread(
     cancel_token: oneshot::Receiver<()>,
     cfg: ListenerConfig,
 ) -> Result<ActionListener> {
-    let (tx, rx) = tokio::sync::mpsc::channel::<ActionType>(3);
+    let (tx, rx) = tokio::sync::mpsc::channel::<ActionType>(cfg.message_buffer_size);
 
     let _h = std::thread::spawn(move || {
         let span = tracing::info_span!("pw");
