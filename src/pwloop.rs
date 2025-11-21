@@ -184,7 +184,7 @@ impl ListenerConfig {
             Some(ignore_list) => e
                 .name
                 .as_ref()
-                .or_else(|| e.label.as_ref())
+                .or(e.label.as_ref())
                 .map(|v| ignore_list.contains(v))
                 .unwrap_or(false),
             None => false,
