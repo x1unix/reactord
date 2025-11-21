@@ -12,7 +12,6 @@ use pw::{
     thread_loop::ThreadLoopRc,
     types::ObjectType,
 };
-use tracing::debug;
 
 pub type PWContextRc = std::rc::Rc<PWContext>;
 
@@ -209,7 +208,7 @@ pub fn is_audio_device(props: &Option<&DictRef>) -> bool {
 
 fn normalize_volume_value(v: f32) -> f32 {
     // Convert value to linear and then to percent.
-    v.clamp(0.0, 1.0).powf(1.0 / 3.0).mul(100.0).floor()
+    v.clamp(0.0, 1.0).powf(1.0 / 3.0).mul(100.0).round()
 }
 
 fn normalize_channel_volumes(v: Vec<f32>) -> Vec<f32> {

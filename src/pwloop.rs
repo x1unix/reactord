@@ -37,7 +37,7 @@ fn subscribe_device(ctx: PWContextRc, sender: ActionSender, dev: pw::device::Dev
                 // TODO: support other prop change events?
                 if let Some(vol) = param.and_then(utils::volume_from_pod) {
                     debug!(%dev_id, volume = ?vol, "device volume change");
-                    let _ = vol_sender.send(ActionType::VolumeChange(dev_id, vol));
+                    let _ = vol_sender.blocking_send(ActionType::VolumeChange(dev_id, vol));
                 }
             })
         }),
