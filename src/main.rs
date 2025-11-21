@@ -9,28 +9,6 @@ use tokio::sync::oneshot;
 use tracing::{debug, error, info, info_span, warn};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
-fn format_volume(vol: &VolumeInfo) -> String {
-    let status = if vol.mute.unwrap_or(false) {
-        "[MUTED]"
-    } else {
-        "[NOT MUTED]"
-    };
-
-    // Bad but works for debug
-    // NOTE: for most real devices, volume will be in channel_volumes (as they're stereo).
-    let level = match vol.volume {
-        Some(v) => format!("{v}%"),
-        None if !vol.channel_volumes.is_empty() => vol
-            .channel_volumes
-            .iter()
-            .map(|v| format!("{v}%"))
-            .collect::<Vec<String>>()
-            .join(", "),
-        None => "0%".to_string(),
-    };
-    format!("{level} {status}")
-}
-
 fn init_logger() {
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(format!("{}=warn", env!("CARGO_PKG_NAME"))))
@@ -137,19 +115,12 @@ async fn handle_action(state: &mut State, msg: ActionType) {
                         oid,
                         entry_name = e.get_label(),
                         ?vol,
-                        percent = format_volume(&vol),
                         "volume didn't change, skip"
                     );
                     return;
                 }
 
-                info!(
-                    oid,
-                    entry_name = e.get_label(),
-                    ?vol,
-                    percent = format_volume(&vol),
-                    "VolumeChange"
-                );
+                info!(oid, entry_name = e.get_label(), ?vol, "VolumeChange");
 
                 let prev_notification = state.notification_ids.get(&oid).copied();
                 match dispatch_volume_change(prev_notification, e, vol).await {
