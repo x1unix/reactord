@@ -93,6 +93,7 @@ impl Entry {
 #[allow(dead_code)]
 #[derive(Debug, Default)]
 pub struct State {
+    pub notification_ids: HashMap<u32, u32>,
     pub devices: HashMap<u32, Entry>,
     pub nodes: HashMap<u32, Entry>,
 }

@@ -3,9 +3,10 @@ mod state;
 mod utils;
 
 use anyhow::{Context, Result};
-use state::{ActionType, State, VolumeInfo};
+use notify_rust::{Hint, Notification, NotificationHandle};
+use state::{ActionType, Entry, State, VolumeInfo};
 use tokio::sync::oneshot;
-use tracing::{error, info, info_span, warn};
+use tracing::{debug, error, info, info_span, warn};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 fn format_volume(vol: &VolumeInfo) -> String {
@@ -49,14 +50,85 @@ async fn main() {
     }
 }
 
+async fn dispatch_volume_change(
+    prev_notification: Option<u32>,
+    entry: &mut Entry,
+    vol: VolumeInfo,
+) -> Option<u32> {
+    // TODO: support outputs with different volumes per channel.
+    let val = vol.volume.or_else(|| {
+        if vol.channel_volumes.is_empty() {
+            None
+        } else {
+            Some(vol.channel_volumes[0])
+        }
+    });
+
+    let mut n = Notification::new();
+    if let Some(h) = prev_notification {
+        n.id(h);
+    }
+
+    match (vol.mute, val) {
+        (Some(is_muted), _) if is_muted => {
+            // TODO
+            let s = format!("{} - Muted", entry.get_label());
+            n.summary(s.as_str());
+        }
+        // (Some(is_muted), _) if !is_muted => {
+        //     let s = format!("{} - Unmuted", entry.get_label());
+        //     n.summary(s.as_str());
+        // }
+        (_, Some(value)) => {
+            let v = value.round() as i32;
+            let s = format!("{} - {}%", entry.get_label(), v);
+            n.summary(s.as_str())
+                .icon("audio-volume-high-symbolic")
+                .hint(Hint::CustomInt("value".to_string(), v));
+        }
+        _ => {
+            error!(
+                is_muted = vol.mute,
+                ?val,
+                entry_id = entry.id,
+                "can't send notification as no mute or volume info"
+            );
+            return prev_notification;
+        }
+    }
+
+    n.urgency(notify_rust::Urgency::Normal)
+        .timeout(std::time::Duration::from_secs(5))
+        .show_async()
+        .await
+        .inspect_err(|err| error!("Failed to send notification: {err}"))
+        .map(|v| v.id())
+        .ok()
+}
+
+#[cfg(target_os = "linux")]
 async fn handle_action(state: &mut State, msg: ActionType) {
     match msg {
         ActionType::EntryAdd(oid, entry) => {
             info!(oid, ?entry, "EntryAdd");
             state.devices.insert(oid, entry);
         }
-        ActionType::VolumeChange(oid, vol) => match state.devices.get(&oid) {
+        ActionType::VolumeChange(oid, vol) => match state.devices.get_mut(&oid) {
             Some(e) => {
+                // After initial subscribe - first message is fired immediately to send a current
+                // state.
+                if e.volume.is_none() {
+                    debug!(
+                        oid,
+                        entry_name = e.get_label(),
+                        ?vol,
+                        "received volume info for first time, skip notification"
+                    );
+
+                    e.volume = Some(vol);
+                    return;
+                }
+
                 info!(
                     oid,
                     entry_name = e.get_label(),
@@ -64,6 +136,16 @@ async fn handle_action(state: &mut State, msg: ActionType) {
                     percent = format_volume(&vol),
                     "VolumeChange"
                 );
+
+                let prev_notification = state.notification_ids.get(&oid).copied();
+                match dispatch_volume_change(prev_notification, e, vol).await {
+                    Some(nid) => {
+                        state.notification_ids.insert(oid, nid);
+                    }
+                    None => {
+                        state.notification_ids.remove(&oid);
+                    }
+                }
             }
             None => {
                 warn!(oid, "got VolumeChange event for orphan device/node");
