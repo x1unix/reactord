@@ -3,7 +3,7 @@ mod state;
 mod utils;
 
 use anyhow::{Context, Result};
-use notify_rust::{Hint, Notification, NotificationHandle};
+use notify_rust::{Hint, Notification};
 use state::{ActionType, Entry, State, VolumeInfo};
 use tokio::sync::oneshot;
 use tracing::{debug, error, info, info_span, warn};
