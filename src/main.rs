@@ -107,6 +107,7 @@ async fn dispatch_volume_change(
 }
 
 #[cfg(target_os = "linux")]
+#[tracing::instrument(name = "handle_action", skip(state, msg))]
 async fn handle_action(state: &mut State, msg: ActionType) {
     match msg {
         ActionType::EntryAdd(oid, entry) => {
@@ -180,6 +181,7 @@ async fn handle_action(state: &mut State, msg: ActionType) {
     }
 }
 
+#[tracing::instrument(name = "run")]
 async fn run() -> Result<()> {
     let span = info_span!("msg_listener");
     let _h = span.enter();
