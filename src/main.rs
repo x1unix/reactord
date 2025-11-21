@@ -114,6 +114,7 @@ async fn handle_action(state: &mut State, msg: ActionType) {
             state.devices.insert(oid, entry);
         }
         ActionType::VolumeChange(oid, vol) => match state.devices.get_mut(&oid) {
+            // TODO: check if state has not changed (regression when opening pamixer).
             Some(e) if e.volume.is_none() => {
                 // After initial subscribe - first message is fired immediately to send a current
                 // state.
