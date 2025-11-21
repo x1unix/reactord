@@ -98,6 +98,18 @@ pub struct State {
     pub nodes: HashMap<u32, Entry>,
 }
 
+impl State {
+    pub fn remove_entry(&mut self, id: &u32) {
+        self.devices.remove(id);
+        self.notification_ids.remove(id);
+    }
+
+    pub fn clear_entries(&mut self) {
+        self.devices.clear();
+        self.notification_ids.clear();
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum ActionType {

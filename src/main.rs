@@ -158,18 +158,17 @@ async fn handle_action(state: &mut State, msg: ActionType) {
                 warn!(oid, "got VolumeChange event for orphan device/node");
             }
         },
-        ActionType::EntryRemove(oid) => {
-            match state.devices.get(&oid) {
-                Some(entry) => {
-                    // TODO
-                    info!(oid, ?entry, "EntryRemove");
-                }
-                None => {
-                    warn!(oid, "got VolumeChange event for orphan device/node");
-                }
+        ActionType::EntryRemove(oid) => match state.devices.get(&oid) {
+            Some(entry) => {
+                info!(oid, ?entry, "EntryRemove");
+                state.remove_entry(&oid);
             }
-        }
+            None => {
+                warn!(oid, "got VolumeChange event for orphan device/node");
+            }
+        },
         ActionType::Shutdown => {
+            state.clear_entries();
             info!("bye!");
         }
     }
