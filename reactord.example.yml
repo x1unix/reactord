@@ -1,0 +1,58 @@
+version: "1.0"
+sources:
+  pw:
+    type: pipewire
+
+pipelines:
+  notify-output-volume:
+    trigger:
+      source: pw
+      events:
+        - node.volume_changed
+    stages:
+      - type: filter
+        filters:
+          - event["device.id"] # Filter by truthly value to skip syntetic nodes
+      - type: map
+        fields:
+          volume_percent:
+            expression: "int(round(pow(event.volume ?? 0, 1.0 / 3.0) * 100.0))"
+          label:
+            # Extract source/sink name from one of available 'event.props' dictionary keys
+            oneof:
+              source: "event.props"
+              default: "<unnamed>"
+              keys:
+                - "node.nick"
+                - "node.description"
+                - "device.description"
+                - "device.name"
+          notification_key:
+            oneof:
+              source: event.props
+              keys:
+                - node.id
+                - device.id
+          icon:
+            # Else/if branch
+            map:
+              - when: event.node.kind == "sink"
+                value: ":headphones:"
+              - when: event.node.kind == "source"
+                value: ":microphone:"
+              - default: ":headphones:"
+      - type: notify-send
+        options:
+          key: event.notification_key # Notification key to reuse notification for existing node
+          icon: event.icon
+          hints:
+            - type: int
+              when: "!event.is_muted" # Skip progress if not muted
+              key: value
+              value: event.volume_percent
+          summary: |
+            if event.is_nuted {
+              format("{} {} - Muted", event.icon, event.label)
+            } else {
+              format("{} {} - {}%", event.icon, event.volume_percent)
+            }
