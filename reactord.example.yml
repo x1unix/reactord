@@ -12,7 +12,7 @@ pipelines:
     stages:
       - type: filter
         filters:
-          - event["device.id"] # Filter by truthly value to skip syntetic nodes
+          - event["device.id"] != null # Filter by truthly value to skip syntetic nodes
       - type: map
         fields:
           volume_percent:
